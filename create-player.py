@@ -16,6 +16,7 @@ FPS = 60
 
 #Đặt biến trọng lục
 GRAVITY = 0.75
+TILE_SIZE = 40
 
 #Đặt biến di chuyển trái - phải
 moving_left = False
@@ -202,10 +203,11 @@ class Bullet(pygame.sprite.Sprite):
             if player.alive: 
                 player.health -= 5     
                 self.kill()
-        if pygame.sprite.spritecollide(enemy, bullet_group, False):
-            if player.alive:      
-                enemy.health -= 25
-                self.kill()
+        for enemy in enemy_group:
+            if pygame.sprite.spritecollide(enemy, bullet_group, False):
+                if player.alive:      
+                    enemy.health -= 25
+                    self.kill()
 
 class Grenade(pygame.sprite.Sprite):
     def __init__(self, x, y,direction):
@@ -238,15 +240,59 @@ class Grenade(pygame.sprite.Sprite):
         self.rect.x += dx
         self.rect.y += dy
 
+        #Đếm ngược tgian nổ
+        self.timer -= 1
+        if self.timer <= 0:
+            self.kill()
+            explosion = Exception(self.rect.x, self.rect.y, 0.5)
+            explosion_group.add(explosion)
+            #Sát thương của lựu đạn
+            if abs(self.rect.centerx - player.rect.centerx) < TILE_SIZE * 2 and abs(self.rect.centerx - player.rect.centery) < TILE_SIZE * 2:
+                player.health -= 50
+            for enemy in enemy_group:
+                if abs(self.rect.centerx - enemy.rect.centerx) < TILE_SIZE * 2 and abs(self.rect.centerx - enemy.rect.centery) < TILE_SIZE * 2:
+                    player.health -= 50
+
+class Explosion(pygame.sprite.Sprite):
+    def __init__(self, x, y, scale):
+        pygame.sprite.Sprite.__init__(self)
+        self.images = []
+        for num in range(1, 6):
+            img = pygame.image.load(f'img/explosion/exp{num}.png').convert_alpha()
+            img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
+            self.images.append(img)
+        self.frame_index = 0
+        self.image = self.images[self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.counter = 0
+    
+    def update(self):
+        EXPLOSION_SPEED = 4
+        #Cập nhật hoạt ảnh vụ nổ
+        self.counter += 1
+
+        if self.counter >= EXPLOSION_SPEED:
+            self.counter = 0
+            self.frame_index += 1
+            #Nếu hoạt ảnh hoàn thành thì xóa hoạt ảnh
+            if self.frame_index >= len(self.images):
+                self.kill()
+            else:
+                self.image = self.images[self.frame_index]
+
+
 
 #Tạo nhóm hoạt ảnh
+enemy_group = pygame.sprite.Group()
 bullet_group = pygame.sprite.Group()
 grenade_group = pygame.sprite.Group()
+explosion_group = pygame.sprite.Group()
 
 
 player = Soldier('player', 200, 200, 3, 5, 20, 5)
 enemy = Soldier('enemy', 400, 200, 3, 5, 20, 0)
-
+enemy_group.add(enemy)
 
 
 run = True
@@ -265,8 +311,10 @@ while run:
     #Cập nhật và tạo nhóm
     bullet_group.update()
     grenade_group.update()
+    explosion_group.update()
     bullet_group.draw(screen)
     grenade_group.draw(screen)
+    explosion_group.draw(screen)
 
 
     #Cập nhật hành động
@@ -277,8 +325,8 @@ while run:
         elif grenade and grenade_thrown == False and player.grenades > 0:
             grenade = Grenade(player.rect.centerx + (0.5 * player.rect.size[0] * player.direction), player.rect.top, player.direction)
             grenade_group.add(grenade)
-            grenade_thrown = True
             player.grenades -= 1
+            grenade_thrown = True
         if player.in_air:
             player.update_action(2)#2: Nhảy
         elif moving_left or moving_right:
