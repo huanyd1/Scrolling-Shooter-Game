@@ -21,10 +21,14 @@ GRAVITY = 0.75
 moving_left = False
 moving_right = False
 shoot = False
+grenade = False
+grenade_thrown = False
 
 #Tải hình ảnh
 #Đạn
-bullet_img = pygame.image.load('img/icons/bullet.png').convert_alpha()
+bullet_img = pygame.image.load('img/icons/SpongeBullet.png').convert_alpha()
+#Lựu đạn
+grenade_img = pygame.image.load('img/icons/grenade.png').convert_alpha()
 
 
 #Đặt màu 
@@ -39,7 +43,7 @@ def draw_bg():
 
 #Lớp lính
 class Soldier(pygame.sprite.Sprite):
-    def __init__(self, char_type, x, y, scale, speed, ammo):
+    def __init__(self, char_type, x, y, scale, speed, ammo, grenades):
         pygame.sprite.Sprite.__init__(self)
         #Biến còn sống, nếu alive == False => lính chết
         self.alive = True
@@ -53,6 +57,8 @@ class Soldier(pygame.sprite.Sprite):
         self.start_ammo = ammo
         #Làm chậm số lần bắn
         self.shoot_cooldown = 0
+        #Số lựu đạn
+        self.grenades = grenades
         #Sức khỏe - Máu
         self.health = 100 
         #Máu tối đa
@@ -196,18 +202,50 @@ class Bullet(pygame.sprite.Sprite):
             if player.alive: 
                 player.health -= 5     
                 self.kill()
-        if pygame.sprite.spritecollide(player, bullet_group, False):
+        if pygame.sprite.spritecollide(enemy, bullet_group, False):
             if player.alive:      
                 enemy.health -= 25
                 self.kill()
 
+class Grenade(pygame.sprite.Sprite):
+    def __init__(self, x, y,direction):
+        pygame.sprite.Sprite.__init__(self)
+        self.timer = 100
+        self.vel_y = -11
+        self.speed = 7
+        self.image = grenade_img
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.direction = direction
+
+    def update(self):
+        self.vel_y += GRAVITY
+        dx = self.direction * self.speed
+        dy = self.vel_y
+
+        #Kiểm tra va chạm với mặt đất
+        if self.rect.bottom + dy > 300:
+            dy = 300 - self.rect.bottom
+            self.speed = 0
+
+        #Kiểm tra va chạm lựu đạn với tường
+        if self.rect.left + dx < 0 or self.rect.right > SCREEN_WIDTH:
+            self.direction *= -1
+            dx = self.direction * self.speed
+
+
+        #Cập nhật vị trí lựu đạn
+        self.rect.x += dx
+        self.rect.y += dy
+
 
 #Tạo nhóm hoạt ảnh
 bullet_group = pygame.sprite.Group()
+grenade_group = pygame.sprite.Group()
 
 
-player = Soldier('player', 200, 200, 3, 5, 20)
-enemy = Soldier('enemy', 400, 200, 3, 5, 20)
+player = Soldier('player', 200, 200, 3, 5, 20, 5)
+enemy = Soldier('enemy', 400, 200, 3, 5, 20, 0)
 
 
 
@@ -226,13 +264,21 @@ while run:
 
     #Cập nhật và tạo nhóm
     bullet_group.update()
+    grenade_group.update()
     bullet_group.draw(screen)
+    grenade_group.draw(screen)
 
 
     #Cập nhật hành động
     if player.alive:
         if shoot:
             player.shoot()
+        #Ném lựu đạn
+        elif grenade and grenade_thrown == False and player.grenades > 0:
+            grenade = Grenade(player.rect.centerx + (0.5 * player.rect.size[0] * player.direction), player.rect.top, player.direction)
+            grenade_group.add(grenade)
+            grenade_thrown = True
+            player.grenades -= 1
         if player.in_air:
             player.update_action(2)#2: Nhảy
         elif moving_left or moving_right:
@@ -254,6 +300,8 @@ while run:
                 moving_right = True
             if event.key == pygame.K_SPACE:
                 shoot = True
+            if event.key == pygame.K_q:
+                grenade = True
             if event.key == pygame.K_w and player.alive:
                 player.jump = True
             if event.key == pygame.K_ESCAPE:
@@ -268,6 +316,9 @@ while run:
                 moving_right = False
             if event.key == pygame.K_SPACE:
                 shoot = False
+            if event.key == pygame.K_q:
+                grenade = False
+                grenade_thrown = False
 
 
 
