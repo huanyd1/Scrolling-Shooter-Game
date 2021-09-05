@@ -30,6 +30,16 @@ grenade_thrown = False
 bullet_img = pygame.image.load('img/icons/SpongeBullet.png').convert_alpha()
 #Lựu đạn
 grenade_img = pygame.image.load('img/icons/grenade.png').convert_alpha()
+#item
+health_box_img = pygame.image.load('img/icons/health_box.png').convert_alpha()
+ammon_box_img = pygame.image.load('img/icons/ammo_box.png').convert_alpha()
+grenade_box_img = pygame.image.load('img/icons/grenade_box.png').convert_alpha()
+
+item_boxes = {
+    'Health'   : health_box_img,
+    'Ammo'    : ammon_box_img,
+    'Grenade' : grenade_box_img
+}
 
 
 #Đặt màu 
@@ -183,6 +193,16 @@ class Soldier(pygame.sprite.Sprite):
     def draw(self):
         screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect)
 
+
+class ItemBox(pygame.sprite.Sprite):
+    def __init__(self, item_type, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.item_type = item_type
+        self.image = item_boxes[self.item_type]
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (x + TILE_SIZE // 2, y + (TILE_SIZE - self.image.get_height()))
+
+
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y,direction):
         pygame.sprite.Sprite.__init__(self)
@@ -231,7 +251,7 @@ class Grenade(pygame.sprite.Sprite):
             self.speed = 0
 
         #Kiểm tra va chạm lựu đạn với tường
-        if self.rect.left + dx < 0 or self.rect.right > SCREEN_WIDTH:
+        if self.rect.left + dx < 0 or self.rect.right + dx > SCREEN_WIDTH:
             self.direction *= -1
             dx = self.direction * self.speed
 
@@ -244,14 +264,15 @@ class Grenade(pygame.sprite.Sprite):
         self.timer -= 1
         if self.timer <= 0:
             self.kill()
-            explosion = Exception(self.rect.x, self.rect.y, 0.5)
+            explosion = Explosion(self.rect.x, self.rect.y, 0.5)
             explosion_group.add(explosion)
             #Sát thương của lựu đạn
             if abs(self.rect.centerx - player.rect.centerx) < TILE_SIZE * 2 and abs(self.rect.centerx - player.rect.centery) < TILE_SIZE * 2:
                 player.health -= 50
+                print(player.health)
             for enemy in enemy_group:
                 if abs(self.rect.centerx - enemy.rect.centerx) < TILE_SIZE * 2 and abs(self.rect.centerx - enemy.rect.centery) < TILE_SIZE * 2:
-                    player.health -= 50
+                    enemy.health -= 50
 
 class Explosion(pygame.sprite.Sprite):
     def __init__(self, x, y, scale):
@@ -288,7 +309,16 @@ enemy_group = pygame.sprite.Group()
 bullet_group = pygame.sprite.Group()
 grenade_group = pygame.sprite.Group()
 explosion_group = pygame.sprite.Group()
+item_box_group = pygame.sprite.Group()
 
+
+#Tạo hộp vật phẩm
+item_box = ItemBox('Health', 100, 300)
+item_box_group.add(item_boxes)
+item_box = ItemBox('Ammo', 300, 300)
+item_box_group.add(item_boxes)
+item_box = ItemBox('Grenade', 500, 300)
+item_box_group.add(item_boxes)
 
 player = Soldier('player', 200, 200, 3, 5, 20, 5)
 enemy = Soldier('enemy', 400, 200, 3, 5, 20, 0)
@@ -312,9 +342,11 @@ while run:
     bullet_group.update()
     grenade_group.update()
     explosion_group.update()
+    item_box_group.update()
     bullet_group.draw(screen)
     grenade_group.draw(screen)
     explosion_group.draw(screen)
+    item_box_group.draw(screen)
 
 
     #Cập nhật hành động
